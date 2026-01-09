@@ -1,0 +1,199 @@
+if __name__ == "__main__":
+    import pandas as pd
+    import torch
+    import lightning.pytorch as pl
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer
+    from pytorch_forecasting.data import GroupNormalizer
+    from pytorch_forecasting.metrics import QuantileLoss
+    from lightning.pytorch.callbacks import EarlyStopping, LearningRateMonitor
+    from sklearn.metrics import mean_absolute_error
+ 
+    #Load dataset
+    df = pd.read_csv(r"C:\Users\Jimmy\Downloads\energy_dataset_spain.csv")
+
+    #Fix spaces in between column headers
+    df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
+
+    #Standardize differences between time-zone
+    df["time"] = pd.to_datetime(df["time"], utc=True, errors="coerce")
+    df["time"] = df["time"].dt.tz_localize(None)
+
+    #Define columns of generation sources
+    generation_cols = [
+        "generation_biomass",
+        "generation_fossil_brown_coal/lignite",
+        "generation_fossil_coal-derived_gas",
+        "generation_fossil_gas",
+        "generation_fossil_hard_coal",
+        "generation_fossil_oil",
+        "generation_fossil_oil_shale",
+        "generation_fossil_peat",
+        "generation_geothermal",
+        "generation_hydro_pumped_storage_aggregated",
+        "generation_hydro_pumped_storage_consumption",
+        "generation_hydro_run-of-river_and_poundage",
+        "generation_hydro_water_reservoir",
+        "generation_marine",
+        "generation_nuclear",
+        "generation_other",
+        "generation_other_renewable",
+        "generation_solar",
+        "generation_waste",
+        "generation_wind_offshore",
+        "generation_wind_onshore"
+    ]
+
+    #Data formatting, drop rows with missing target values and fill in missing input valuesc
+    target = "total_load_actual"
+    df = df.dropna(subset=[target]).reset_index(drop=True)
+    df[generation_cols] = df[generation_cols].fillna(method="ffill").fillna(0)
+
+    #Convert a numerical index for each value, converting to hours
+    df["time_idx"] = (df["time"] - df["time"].iloc[0]).dt.total_seconds() // 3600
+    df["time_idx"] = df["time_idx"].astype(int)
+
+    #Define date values
+    df["hour"] = df["time"].dt.hour
+    df["day_of_week"] = df["time"].dt.dayofweek
+    df["month"] = df["time"].dt.month
+    df["is_weekend"] = df["day_of_week"].isin([5,6]).astype(int)
+
+    #Adds a identifier for the grid and typecast each column to a string
+    df["grid_id"] = "main_grid"
+    categorical_cols = ["hour","day_of_week","month","is_weekend","grid_id"]
+    for col in categorical_cols:
+        df[col] = df[col].astype(str)
+
+    #Set the max amount of data to use to predict as well as prediction length
+    max_encoder_length = 168   #7 day history
+    max_prediction_length = 24 #1 day forecast
+    #Adds a cutoff, leaves the last 24 hours as the data for validation/testing
+    training_cutoff = df["time_idx"].max() - max_prediction_length
+
+    #Define the dataset, only use the data up till the cutoff
+    dataset = TimeSeriesDataSet(
+        df[df.time_idx <= training_cutoff],
+        time_idx="time_idx",
+        #Set the target equal to the total load defined above
+        target=target,
+        group_ids=["grid_id"],
+
+        #Categorical features do not change over time
+        static_categoricals=["grid_id"],
+
+        time_varying_known_categoricals=["hour","day_of_week","month","is_weekend"],
+        time_varying_known_reals=["time_idx"],
+
+        #The data that varies is the load and generation sources
+        time_varying_unknown_reals=[target] + generation_cols,
+
+        max_encoder_length=max_encoder_length,
+        max_prediction_length=max_prediction_length,
+
+        target_normalizer=GroupNormalizer(
+            groups=["grid_id"], transformation="softplus"
+        ),
+
+        add_relative_time_idx=True,
+        add_target_scales=True,
+        add_encoder_length=True,
+
+        #Allow for missing times, ie. Removed values with missing loads
+        allow_missing_timesteps=True
+    )
+
+    #Shuffle training data and specify batch size
+    train_loader = dataset.to_dataloader(train=True, batch_size=64, num_workers=0)
+    #Create a validation set with all the data from the last 24 hours
+    val_dataset = TimeSeriesDataSet.from_dataset(
+        dataset,
+        df,
+        predict=True,
+        stop_randomization=True
+    )
+    val_loader = val_dataset.to_dataloader(train=False, batch_size=64, num_workers=0)
+
+    #Configuration of the TFT Model
+    tft = TemporalFusionTransformer.from_dataset(
+        dataset,
+        learning_rate=1e-3,
+        hidden_size=64,
+        attention_head_size=4,
+        hidden_continuous_size=32,
+        dropout=0.1,
+        loss=QuantileLoss(),
+        output_size=7,
+        log_interval=10,
+        reduce_on_plateau_patience=4
+    )
+
+    #Configure training pipeline
+    trainer = pl.Trainer(
+        max_epochs=5,
+        gradient_clip_val=0.1,
+        accelerator="gpu" if torch.cuda.is_available() else "cpu",
+        callbacks=[
+            EarlyStopping(monitor="val_loss", patience=6),
+            LearningRateMonitor()
+        ]
+    )
+    #Train the model
+    trainer.fit(tft, train_loader, val_loader)
+
+    #Predict a 24-hour sequence
+    load_forecast = tft.predict(val_loader)
+    
+    #Reshape the predicted and actual values so MAE can be calculated
+    val_predictions = load_forecast
+    val_predicted = val_predictions.reshape(-1)
+    val_actual = torch.cat([y[0] for x, y in iter(val_loader)], dim=0).numpy()
+    val_actual = val_actual.reshape(-1)
+    mae_val = mean_absolute_error(val_actual, val_predicted)
+    print(f"Validation MAE (Total Load): {mae_val:.2f}")
+    
+    print(load_forecast.shape)
+
+    last_time = df["time"].max()
+
+    # Create hourly timestamps for the forecast
+    forecast_times = pd.date_range(
+        start=last_time + pd.Timedelta(hours=1),
+        periods=load_forecast.shape[1],
+        freq='H'
+    )
+
+    # Convert tensor to 1D numpy array
+    forecast_values = load_forecast[0].numpy()
+
+    # Create a DataFrame
+    forecast_df = pd.DataFrame({
+        "time": forecast_times,
+        "predicted_load": forecast_values
+    })
+
+    #Print forecasted values
+    print(forecast_df)
+    
+    #Next step: Graph the results
+    sns.set_theme(style="whitegrid", palette="muted", font_scale=1.2)
+    # Get actual values for the same validation period
+    val_actual_df = pd.DataFrame({
+        "time": df["time"].iloc[-load_forecast.shape[1]:],  # last 24 hours
+        "actual_load": val_actual
+    })
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(val_actual_df["time"], val_actual_df["actual_load"], label="Actual Load", marker='o')
+    plt.plot(forecast_df["time"], forecast_df["predicted_load"], label="Predicted Load", marker='x')
+
+    plt.title("Total Load Forecast vs Actual")
+    plt.xlabel("Time")
+    plt.ylabel("Load (MW)")
+    plt.xticks(rotation=45)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
