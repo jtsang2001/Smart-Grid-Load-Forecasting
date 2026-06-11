@@ -1,0 +1,6 @@
+fold,val_start_idx,val_end_idx,best_val_loss,best_ckpt
+1,15755,16474,317.26348876953125,/lustre07/scratch/jtsang14/Model/logsgnn_noise/checkpoints_market_demand_fold1/market_demand-epoch=006-val_loss=317.2635.ckpt
+2,31510,32229,324.5653991699219,/lustre07/scratch/jtsang14/Model/logsgnn_noise/checkpoints_market_demand_fold2/market_demand-epoch=008-val_loss=324.5654.ckpt
+3,47265,47984,351.20062255859375,/lustre07/scratch/jtsang14/Model/logsgnn_noise/checkpoints_market_demand_fold3/market_demand-epoch=004-val_loss=351.2006.ckpt
+4,63020,63739,254.16763305664062,/lustre07/scratch/jtsang14/Model/logsgnn_noise/checkpoints_market_demand_fold4/market_demand-epoch=006-val_loss=254.1676.ckpt
+5,78775,79494,280.26214599609375,/lustre07/scratch/jtsang14/Model/logsgnn_noise/checkpoints_market_demand_fold5/market_demand-epoch=004-val_loss=280.2621.ckpt

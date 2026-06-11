@@ -1,0 +1,6 @@
+fold,val_start_idx,val_end_idx,best_val_loss,best_ckpt
+1,15755,16474,243.59707641601562,/lustre07/scratch/jtsang14/Model/logsgnn_noise/checkpoints_ontario_demand_fold1/ontario_demand-epoch=003-val_loss=243.5971.ckpt
+2,31510,32229,338.8049011230469,/lustre07/scratch/jtsang14/Model/logsgnn_noise/checkpoints_ontario_demand_fold2/ontario_demand-epoch=004-val_loss=338.8049.ckpt
+3,47265,47984,351.9024353027344,/lustre07/scratch/jtsang14/Model/logsgnn_noise/checkpoints_ontario_demand_fold3/ontario_demand-epoch=006-val_loss=351.9024.ckpt
+4,63020,63739,216.94454956054688,/lustre07/scratch/jtsang14/Model/logsgnn_noise/checkpoints_ontario_demand_fold4/ontario_demand-epoch=009-val_loss=216.9445.ckpt
+5,78775,79494,145.58619689941406,/lustre07/scratch/jtsang14/Model/logsgnn_noise/checkpoints_ontario_demand_fold5/ontario_demand-epoch=009-val_loss=145.5862.ckpt
