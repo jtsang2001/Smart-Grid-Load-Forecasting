@@ -78,6 +78,7 @@ class MultiHeadGATLayer(nn.Module):
         M, N, _ = h.shape
 
         # Linear transform → reshape to (M, N, H, head_dim = 8)
+        #L6
         Wh = self.W(h).view(M, N, self.n_heads, self.head_dim)
 
         # Attention scores, colapses the embeddings into one scaler
@@ -118,6 +119,7 @@ class FeatureGATEncoder(nn.Module):
         self.n_nodes = n_nodes
 
         # Project scalar node value → hidden_dim (32D)
+        # L5
         self.input_proj = nn.Linear(1, hidden_dim)
 
         # Stack of GAT layers with layer norm + residual
@@ -125,6 +127,7 @@ class FeatureGATEncoder(nn.Module):
             MultiHeadGATLayer(hidden_dim, hidden_dim, n_heads, dropout)
             for _ in range(n_layers)
         ])
+        #L7 L9
         self.layer_norms = nn.ModuleList([
             nn.LayerNorm(hidden_dim) for _ in range(n_layers)
         ])
@@ -146,6 +149,7 @@ class FeatureGATEncoder(nn.Module):
         h = self.input_proj(h)              
 
         #Perform two rounds of message passing (2 layers) and normalise the results
+        #L6 L8
         for gat, norm in zip(self.gat_layers, self.layer_norms):
             h = norm(h + gat(h, adj))
 
@@ -154,4 +158,5 @@ class FeatureGATEncoder(nn.Module):
         h = h.squeeze(-1).reshape(B, T, N)
 
         # Run results (h) through tanh gate to scale GAT output
+        #L10
         return torch.tanh(self.gate) * h
