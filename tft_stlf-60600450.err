@@ -2333,11 +2333,11 @@ SLURM auto-requeueing enabled. Setting signal handlers.
 /home/jtsang14/envs/tft/lib/python3.12/site-packages/lightning/pytorch/utilities/_pytree.py:21: `isinstance(treespec, LeafSpec)` is deprecated, use `isinstance(treespec, TreeSpec) and treespec.is_leaf()` instead.
 [INFO] - 
 Metrics – market_demand  (non-overlapping 24h windows)
-[INFO] -   MAE  : 723.38 MW
-[INFO] -   RMSE : 907.95 MW
-[INFO] -   MAPE : 3.48 %
-[INFO] -   R²   : 0.6234
-[INFO] -   Per-horizon MAE (h=1..24): min=478.6  max=755.0  h1=478.6  h24=755.0
+[INFO] -   MAE  : 435.09 MW
+[INFO] -   RMSE : 510.65 MW
+[INFO] -   MAPE : 2.076 %
+[INFO] -   R²   : 0.8325
+[INFO] -   Per-horizon MAE (h=1..24): min=387.6  max=462.0  h1=387.6  h24=462.02
 [INFO] - Forecast plot → /lustre07/scratch/jtsang14/Model/logsgnn/market_demand_forecast.png
 [INFO] - Residuals plot → /lustre07/scratch/jtsang14/Model/logsgnn/market_demand_residuals.png
 [INFO] - Scatter plot   → /lustre07/scratch/jtsang14/Model/logsgnn/market_demand_scatter.png
@@ -2347,4 +2347,4 @@ All metrics written → /lustre07/scratch/jtsang14/Model/logsgnn/test_metrics.cs
 [INFO] - 
         target  MAE_MW  RMSE_MW  MAPE_pct     R2  MAE_h1  MAE_h24
 ontario_demand  474.60   623.41     2.607 0.8399  295.88   475.83
- market_demand  723.38   907.95     3.485 0.6234  478.60   755.02
+ market_demand  435.09   510.65     2.076 0.8325  387.60   462.02
