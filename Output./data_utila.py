@@ -175,7 +175,7 @@ def prepare_data(
 
     df["time_idx"] = np.arange(len(df), dtype=int)
 
-
+    #L2: Known future reals
     known_reals: List[str] = [
         "hour_sin", "hour_cos",
         "dow_sin",  "dow_cos",
@@ -197,14 +197,14 @@ def prepare_data(
     other_target = (
         "market_demand" if target_col == "ontario_demand" else "ontario_demand"
     )
-
+    #L1: Past IP includes generation, targets, lag, and rolling statistics
     unknown_reals: List[str] = (
         [c for c in gen_cols if c in df.columns]
         + ([other_target] if other_target in df.columns else [])
         + lag_cols
         + rolling_cols
     )
-
+    
     known_reals   = [c for c in known_reals   if c in df.columns]
     unknown_reals = [c for c in unknown_reals if c in df.columns]
 
@@ -238,14 +238,18 @@ def create_forecasting_dataset(
         group_ids=["group_id"],
         max_encoder_length=max_encoder_length,
         max_prediction_length=max_prediction_length,
+        #L1: Known Future
         time_varying_known_reals=known_reals,
         time_varying_unknown_reals=unknown_reals + [target_col],
         target_normalizer=GroupNormalizer(
             groups=["group_id"],
             transformation="softplus",   # better than log1p for MW-scale targets
         ),
+        #Append to L1 and L2
         add_relative_time_idx=True,
+        #L0: Static Metadata
         add_target_scales=True,
         add_encoder_length=True,
+        
         allow_missing_timesteps=False,
     )
